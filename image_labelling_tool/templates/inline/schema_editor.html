@@ -41,10 +41,10 @@
                 dataType: 'json'
             });
         };
-
         var sch_ed = new schema_editor.SchemaEditor(
             {{ schema | safe }},
             update_callback,
+            {{ fao_code_options | safe}}
         );
     });
 </script>

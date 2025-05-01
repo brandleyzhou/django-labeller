@@ -40,12 +40,13 @@ var schema_editor;
          * @param update_delay_ms - the delay in milliseconds to wait after user actions before sending an update
          *  via `update_callback`
          */
-        function SchemaEditor(schema_js, update_callback, update_delay_ms) {
+        function SchemaEditor(schema_js, update_callback, fao_code_options, update_delay_ms) {
             // We put updates in a queue that we can send
             this.update_timeout_id = null;
             this.message_response_callbacks_by_id = {};
             this.app = null;
             this.get_schema = null;
+            this.fao_code_options = fao_code_options;
             var self = this;
             if (update_delay_ms === undefined) {
                 update_delay_ms = 1500;
@@ -56,7 +57,8 @@ var schema_editor;
                 el: '#schema_editor',
                 data: function () {
                     return {
-                        schema: schema_js
+                        schema: schema_js,
+                        fao_code_options: fao_code_options,
                     };
                 },
                 created: function () {
@@ -159,11 +161,9 @@ var schema_editor;
                     new_name_state: function () {
                         if (this.new_form_data.name === '') {
                             return 'empty';
-                        }
-                        else if (!SchemaEditor.check_identifier(this.new_form_data.name)) {
+                        } else if (!SchemaEditor.check_identifier(this.new_form_data.name)) {
                             return 'invalid';
-                        }
-                        else {
+                        } else {
                             for (var _i = 0, _a = this.schema.colour_schemes; _i < _a.length; _i++) {
                                 var col_scheme = _a[_i];
                                 if (this.new_form_data.name === col_scheme.name) {
@@ -227,7 +227,8 @@ var schema_editor;
                 template: '#label_class_group_template',
                 props: {
                     group: Object,
-                    schema: Object
+                    schema: Object,
+                    fao_code_options: Array,
                 },
                 data: function () {
                     return {
@@ -235,10 +236,23 @@ var schema_editor;
                         'new_lcls_form_data': {
                             'name': '',
                             'human_name': ''
-                        }
-                    };
+                        },
+                        fao_code_options: fao_code_options,
+
+                    }
+                        ;
                 },
                 methods: {
+                    updateFAOCode() {
+                        const selected = this.fao_code_options.find(
+                            opt => opt.latin_name === this.new_lcls_form_data.human_name
+                        );
+                        this.new_lcls_form_data.name = selected ? selected.code : '';
+                    },
+                    updateLatinName() {
+                        const selected = this.fao_code_options.find(opt => opt.code === this.new_lcls_form_data.name);
+                        this.new_lcls_form_data.human_name = selected ? selected.latin_name : '';
+                    },
                     on_new: function () {
                         this.show_new_form = true;
                     },
@@ -304,11 +318,9 @@ var schema_editor;
                     new_lcls_name_state: function () {
                         if (this.new_lcls_form_data.name === '') {
                             return 'empty';
-                        }
-                        else if (!SchemaEditor.check_identifier(this.new_lcls_form_data.name)) {
+                        } else if (!SchemaEditor.check_identifier(this.new_lcls_form_data.name)) {
                             return 'invalid';
-                        }
-                        else {
+                        } else {
                             for (var _i = 0, _a = this.schema.label_class_groups; _i < _a.length; _i++) {
                                 var group = _a[_i];
                                 for (var _b = 0, _c = group.group_classes; _b < _c.length; _b++) {
@@ -363,8 +375,7 @@ var schema_editor;
                     html_colour: function () {
                         if (this.colour_table.hasOwnProperty(this.scheme_name)) {
                             return SchemaEditor.rgb_to_hex(this.colour_table[this.scheme_name]);
-                        }
-                        else {
+                        } else {
                             return '#808080';
                         }
                     },
@@ -399,6 +410,7 @@ var schema_editor;
              */
             var vm = self.app.mount('#schema_editor');
         }
+
         /**
          * Notify the tool of responses to messages sent out via the update_callback passed to the constructor
          * @param response_block responses in the form of an object:
@@ -516,7 +528,7 @@ var schema_editor;
             var self = this;
             var schema = self.get_schema();
             return {
-                message: { method: 'update_schema', params: { schema: schema } },
+                message: {method: 'update_schema', params: {schema: schema}},
                 on_response: function (msg) {
                     if (msg.status === 'success') {
                         console.log('Schema update successful');
@@ -550,8 +562,7 @@ var schema_editor;
                                 }
                             }
                         }
-                    }
-                    else {
+                    } else {
                         SchemaEditor.error_from_server(msg.status);
                     }
                 }
@@ -568,70 +579,85 @@ var schema_editor;
             this.send_messages(messages);
         };
         SchemaEditor.prototype.send_create_colour_scheme = function (colour_scheme) {
-            this.send_queued_update_followed_by({ message: { method: 'create_colour_scheme', params: { colour_scheme: colour_scheme } },
+            this.send_queued_update_followed_by({
+                message: {method: 'create_colour_scheme', params: {colour_scheme: colour_scheme}},
                 on_response: function (msg) {
                     if (msg.status === 'success') {
                         if (msg.new_colour_scheme_id !== undefined) {
                             console.log('Remapping colour scheme id ' + colour_scheme.id + ' to ' + msg.new_colour_scheme_id);
                             colour_scheme.id = msg.new_colour_scheme_id;
                         }
-                    }
-                    else {
+                    } else {
                         SchemaEditor.error_from_server(msg.status);
                     }
-                } });
+                }
+            });
         };
         SchemaEditor.prototype.send_delete_colour_scheme = function (colour_scheme) {
-            this.send_queued_update_followed_by({ message: { method: 'delete_colour_scheme', params: { colour_scheme: colour_scheme } },
+            this.send_queued_update_followed_by({
+                message: {method: 'delete_colour_scheme', params: {colour_scheme: colour_scheme}},
                 on_response: function (msg) {
                     if (msg.status !== 'success') {
                         SchemaEditor.error_from_server(msg.status);
                     }
-                } });
+                }
+            });
         };
         SchemaEditor.prototype.send_create_group = function (group) {
-            this.send_queued_update_followed_by({ message: { method: 'create_group', params: { group: group } },
+            this.send_queued_update_followed_by({
+                message: {method: 'create_group', params: {group: group}},
                 on_response: function (msg) {
                     if (msg.status === 'success') {
                         if (msg.new_group_id !== undefined) {
                             console.log('Remapping group id ' + group.id + ' to ' + msg.new_group_id);
                             group.id = msg.new_group_id;
                         }
-                    }
-                    else {
+                    } else {
                         SchemaEditor.error_from_server(msg.status);
                     }
-                } });
+                }
+            });
         };
         SchemaEditor.prototype.send_delete_group = function (group) {
-            this.send_queued_update_followed_by({ message: { method: 'delete_group', params: { group: group } },
+            this.send_queued_update_followed_by({
+                message: {method: 'delete_group', params: {group: group}},
                 on_response: function (msg) {
                     if (msg.status !== 'success') {
                         SchemaEditor.error_from_server(msg.status);
                     }
-                } });
+                }
+            });
         };
         SchemaEditor.prototype.send_create_label_class = function (label_class, containing_group) {
-            this.send_queued_update_followed_by({ message: { method: 'create_label_class', params: { label_class: label_class, containing_group: containing_group } },
+            this.send_queued_update_followed_by({
+                message: {
+                    method: 'create_label_class',
+                    params: {label_class: label_class, containing_group: containing_group}
+                },
                 on_response: function (msg) {
                     if (msg.status === 'success') {
                         if (msg.new_label_class_id !== undefined) {
                             console.log('Remapping label class id ' + label_class.id + ' to ' + msg.new_label_class_id);
                             label_class.id = msg.new_label_class_id;
                         }
-                    }
-                    else {
+                    } else {
                         SchemaEditor.error_from_server(msg.status);
                     }
-                } });
+                }
+            });
         };
         SchemaEditor.prototype.send_delete_label_class = function (label_class, containing_group) {
-            this.send_queued_update_followed_by({ message: { method: 'delete_label_class', params: { label_class: label_class, containing_group: containing_group } },
+            this.send_queued_update_followed_by({
+                message: {
+                    method: 'delete_label_class',
+                    params: {label_class: label_class, containing_group: containing_group}
+                },
                 on_response: function (msg) {
                     if (msg.status !== 'success') {
                         SchemaEditor.error_from_server(msg.status);
                     }
-                } });
+                }
+            });
         };
         SchemaEditor.confirm_deletion = function (entity_type, entity_name, on_delete) {
             var modal = $('#delete_modal');
@@ -688,4 +714,3 @@ var schema_editor;
     }());
     schema_editor.SchemaEditor = SchemaEditor;
 })(schema_editor || (schema_editor = {}));
-//# sourceMappingURL=schema_editor.js.map

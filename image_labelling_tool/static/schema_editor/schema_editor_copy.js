@@ -26,44 +26,9 @@ Dr. M. Mackiewicz.
  */
 /// <reference path="../jquery.d.ts" />
 /// <reference path="../labelling_tool/object_id_table.ts" />
-
-declare var Vue: any;
-declare var vuedraggable: any;
-
-module schema_editor {
-    type ResponseCallback = (any) => void;
-
-    interface MessageWithCallback {
-        message: any;
-        on_response: ResponseCallback;
-    }
-
-    interface MessageBlock {
-        id: string;
-        messages: any[];
-    }
-
-    interface ResponseBlock {
-        id: string;
-        responses: any[];
-    }
-
-    type UpdateCallback = (MessageBlock) => void;
-
-
-    export class SchemaEditor {
-        // We put updates in a queue that we can send
-        private update_timeout_id: number = null;
-
-        private update_callback: UpdateCallback;
-        private update_delay_ms: number;
-
-        private message_response_callbacks_by_id: any = {};
-
-        private app: any = null;
-
-        private get_schema: () => any = null;
-
+var schema_editor;
+(function (schema_editor) {
+    var SchemaEditor = /** @class */ (function () {
         /**
          * Constructor
          * @param schema_js - JSON representation of the schema to be edited
@@ -75,42 +40,35 @@ module schema_editor {
          * @param update_delay_ms - the delay in milliseconds to wait after user actions before sending an update
          *  via `update_callback`
          */
-        constructor(schema_js: any, update_callback: UpdateCallback, update_delay_ms: number) {
-            let self = this;
-
+        function SchemaEditor(schema_js, update_callback, update_delay_ms) {
+            // We put updates in a queue that we can send
+            this.update_timeout_id = null;
+            this.message_response_callbacks_by_id = {};
+            this.app = null;
+            this.get_schema = null;
+            var self = this;
             if (update_delay_ms === undefined) {
                 update_delay_ms = 1500;
             }
-
             this.update_callback = update_callback;
             this.update_delay_ms = update_delay_ms;
-
-            const RootComponent = {
+            var RootComponent = {
                 el: '#schema_editor',
-                data() {
+                data: function () {
                     return {
-                        schema: schema_js,
-                        name_options: [
-                            {code: 'mammal_dog', label: 'Dog'},
-                            {code: 'mammal_cat', label: 'Cat'},
-                            {code: 'bird_eagle', label: 'Eagle'},
-                            {code: 'fish_salmon', label: 'Salmon'}
-                        ]
-                    }
+                        schema: schema_js
+                    };
                 },
-                created: function() {
-                    let component = this;
-                    self.get_schema = function (): any {
+                created: function () {
+                    var component = this;
+                    self.get_schema = function () {
                         return component.schema;
-                    }
+                    };
                 }
             };
-
             self.app = Vue.createApp(RootComponent);
-
             // Register draggable component so we can use it in the templates
             self.app.component('draggable', vuedraggable);
-
             // Update mixin
             self.app.mixin({
                 methods: {
@@ -137,7 +95,6 @@ module schema_editor {
                     },
                 }
             });
-
             /*
             Colour schemes component
              */
@@ -145,7 +102,6 @@ module schema_editor {
                 template: '#colour_schemes_template',
                 props: {
                     schema: Object,
-                    name_options: Array
                 },
                 data: function () {
                     return {
@@ -178,7 +134,7 @@ module schema_editor {
                         this.show_new_form = false;
                     },
                     open_delete_modal: function (col_scheme) {
-                        let component = this;
+                        var component = this;
                         SchemaEditor.confirm_deletion('colour scheme', col_scheme.human_name, function () {
                             for (var i = 0; i < component.schema.colour_schemes.length; i++) {
                                 if (component.schema.colour_schemes[i] === col_scheme) {
@@ -194,28 +150,29 @@ module schema_editor {
                     }
                 },
                 created: function () {
-                    Vue.watch(this.schema.colour_schemes, (x, prev_x) => {
-                        this.queue_send_schema_update();
+                    var _this = this;
+                    Vue.watch(this.schema.colour_schemes, function (x, prev_x) {
+                        _this.queue_send_schema_update();
                     });
                 },
                 computed: {
-                    new_name_state: function (): string {
+                    new_name_state: function () {
                         if (this.new_form_data.name === '') {
                             return 'empty';
                         } else if (!SchemaEditor.check_identifier(this.new_form_data.name)) {
-                            return 'invalid'
+                            return 'invalid';
                         } else {
-                            for (let col_scheme of this.schema.colour_schemes) {
+                            for (var _i = 0, _a = this.schema.colour_schemes; _i < _a.length; _i++) {
+                                var col_scheme = _a[_i];
                                 if (this.new_form_data.name === col_scheme.name) {
                                     return 'in_use';
                                 }
                             }
-                            return 'ok'
+                            return 'ok';
                         }
                     },
                 }
             });
-
             /*
             All label classes component
              */
@@ -223,7 +180,6 @@ module schema_editor {
                 template: '#all_label_classes_template',
                 props: {
                     schema: Object,
-                    name_options: Array
                 },
                 data: function () {
                     return {
@@ -255,12 +211,12 @@ module schema_editor {
                     },
                 },
                 created: function () {
-                    Vue.watch(this.schema.label_class_groups, (x, prev_x) => {
-                        this.queue_send_schema_update();
+                    var _this = this;
+                    Vue.watch(this.schema.label_class_groups, function (x, prev_x) {
+                        _this.queue_send_schema_update();
                     });
                 }
             });
-
             /*
             Label class group template
             new_lcls_form_data is the form data for creating a new label class
@@ -269,8 +225,7 @@ module schema_editor {
                 template: '#label_class_group_template',
                 props: {
                     group: Object,
-                    schema: Object,
-                    name_options: Array
+                    schema: Object
                 },
                 data: function () {
                     return {
@@ -281,6 +236,7 @@ module schema_editor {
                         }
                     };
                 },
+
                 methods: {
                     on_new: function () {
                         this.show_new_form = true;
@@ -291,7 +247,8 @@ module schema_editor {
                     on_create_new: function () {
                         if (this.new_lcls_form_data.name !== '') {
                             var colours = {};
-                            for (let scheme of this.schema.colour_schemes) {
+                            for (var _i = 0, _a = this.schema.colour_schemes; _i < _a.length; _i++) {
+                                var scheme = _a[_i];
                                 colours[scheme.name] = [128, 128, 128];
                             }
                             colours['default'] = [128, 128, 128];
@@ -309,8 +266,8 @@ module schema_editor {
                         this.show_new_form = false;
                     },
                     open_delete_group_modal: function () {
-                        let component = this;
-                        let group = this.group;
+                        var component = this;
+                        var group = this.group;
                         SchemaEditor.confirm_deletion('group', group.human_name, function () {
                             if (group.group_classes.length === 0) {
                                 for (var i = 0; i < component.schema.label_class_groups.length; i++) {
@@ -324,7 +281,7 @@ module schema_editor {
                         });
                     },
                     open_delete_lcls_modal: function (label_class) {
-                        let component = this;
+                        var component = this;
                         SchemaEditor.confirm_deletion('label class', label_class.human_name, function () {
                             for (var i = 0; i < component.group.group_classes.length; i++) {
                                 if (component.group.group_classes[i] === label_class) {
@@ -337,33 +294,35 @@ module schema_editor {
                     }
                 },
                 created: function () {
-                    Vue.watch(this.group, (x, prev_x) => {
-                        this.queue_send_schema_update();
+                    var _this = this;
+                    Vue.watch(this.group, function (x, prev_x) {
+                        _this.queue_send_schema_update();
                     });
                 },
                 computed: {
-                    new_lcls_name_state: function (): string {
+                    new_lcls_name_state: function () {
                         if (this.new_lcls_form_data.name === '') {
                             return 'empty';
                         } else if (!SchemaEditor.check_identifier(this.new_lcls_form_data.name)) {
-                            return 'invalid'
+                            return 'invalid';
                         } else {
-                            for (let group of this.schema.label_class_groups) {
-                                for (let lcls of group.group_classes) {
+                            for (var _i = 0, _a = this.schema.label_class_groups; _i < _a.length; _i++) {
+                                var group = _a[_i];
+                                for (var _b = 0, _c = group.group_classes; _b < _c.length; _b++) {
+                                    var lcls = _c[_b];
                                     if (this.new_lcls_form_data.name === lcls.name) {
                                         return 'in_use';
                                     }
                                 }
                             }
-                            return 'ok'
+                            return 'ok';
                         }
                     },
-                    can_delete: function (): boolean {
+                    can_delete: function () {
                         return this.group.group_classes.length === 0;
                     },
                 }
             });
-
             /*
             Colour editor text entry
              */
@@ -372,25 +331,24 @@ module schema_editor {
                 props: {
                     colour_table: Object,
                     scheme_name: String,
-                    name_options: Array
                 },
                 data: function () {
                     return {
                         _text_value: '',
                         _colour_value: ''
-                    }
+                    };
                 },
                 emits: ['update:modelValue'],
                 methods: {
-                    on_text_input(e) {
+                    on_text_input: function (e) {
                         if (SchemaEditor.check_colour(e.target.value)) {
                             this.update(e.target.value);
                         }
                     },
-                    on_colour_input(e) {
+                    on_colour_input: function (e) {
                         this.update(e.target.value);
                     },
-                    update(colour) {
+                    update: function (colour) {
                         var rgb = SchemaEditor.hex_to_rgb(colour);
                         this.colour_table[this.scheme_name] = rgb;
                         this._colour_value = colour;
@@ -401,7 +359,7 @@ module schema_editor {
                 computed: {
                     html_colour: function () {
                         if (this.colour_table.hasOwnProperty(this.scheme_name)) {
-                            return SchemaEditor.rgb_to_hex(this.colour_table[this.scheme_name]) as string;
+                            return SchemaEditor.rgb_to_hex(this.colour_table[this.scheme_name]);
                         } else {
                             return '#808080';
                         }
@@ -419,7 +377,7 @@ module schema_editor {
                         // the `tracked_scheme_name` computed value, that will update the underlying `_text_value`
                         // and `_colour_value` attributes when the scheme name changes. Otherwise, re-ordering
                         // the colour schemes will not cause the colour swatches to swap over.
-                        let name = this.tracked_scheme_name;
+                        var name = this.tracked_scheme_name;
                         return this._text_value;
                     },
                     colour_value: function () {
@@ -427,18 +385,16 @@ module schema_editor {
                         // the `tracked_scheme_name` computed value, that will update the underlying `_text_value`
                         // and `_colour_value` attributes when the scheme name changes. Otherwise, re-ordering
                         // the colour schemes will not cause the colour swatches to swap over.
-                        let name = this.tracked_scheme_name;
+                        var name = this.tracked_scheme_name;
                         return this._colour_value;
                     }
                 },
             });
-
             /*
             Mount the app
              */
-            const vm = self.app.mount('#schema_editor');
+            var vm = self.app.mount('#schema_editor');
         }
-
 
         /**
          * Notify the tool of responses to messages sent out via the update_callback passed to the constructor
@@ -447,13 +403,13 @@ module schema_editor {
          *   where id is the message block ID from the message block that is being responded to, and
          *   responses contains a response for each message from the message block
          */
-        public notify_responses(response_block: ResponseBlock) {
+        SchemaEditor.prototype.notify_responses = function (response_block) {
             // Get the callbacks and then remove
-            let callbacks = this.message_response_callbacks_by_id[response_block.id];
+            var callbacks = this.message_response_callbacks_by_id[response_block.id];
             delete this.message_response_callbacks_by_id[response_block.id];
-            let responses = response_block.responses;
+            var responses = response_block.responses;
             for (var i = 0; i < responses.length; i++) {
-                let cb: ResponseCallback = null;
+                var cb = null;
                 if (callbacks !== undefined) {
                     if (i < callbacks.length) {
                         cb = callbacks[i];
@@ -463,9 +419,7 @@ module schema_editor {
                     cb(responses[i]);
                 }
             }
-        }
-
-
+        };
         // private send_messages(messages_and_callbacks: MessageWithCallback[]) {
         //     let self = this;
         //
@@ -495,7 +449,6 @@ module schema_editor {
         //         dataType: 'json'
         //     });
         // }
-
         /**
          * Send an update to the backend in the form of a message block that consists of
          * a message block ID and an array of messages
@@ -503,95 +456,90 @@ module schema_editor {
          *      {message: <message_as_json>, on_response: <>callback function that takes a single parameter>}
          * @private
          */
-        private send_messages(messages_and_callbacks: MessageWithCallback[]) {
-            let messages: any[] = [];
-            let callbacks: ResponseCallback[] = [];
-            for (let msg_cb of messages_and_callbacks) {
-                console.log('Sending ' + msg_cb.message.method);
+        SchemaEditor.prototype.send_messages = function (messages_and_callbacks) {
+            var messages = [];
+            var callbacks = [];
+            for (var _i = 0, messages_and_callbacks_1 = messages_and_callbacks; _i < messages_and_callbacks_1.length; _i++) {
+                var msg_cb = messages_and_callbacks_1[_i];
+                console.log('Sending' + msg_cb.message.method);
                 messages.push(msg_cb.message);
                 callbacks.push(msg_cb.on_response);
             }
-
-            let message_block: MessageBlock = {
+            var message_block = {
                 id: labelling_tool.ObjectIDTable.uuidv4(),
                 messages: messages
             };
-
             this.message_response_callbacks_by_id[message_block.id] = callbacks;
-
             this.update_callback(message_block);
-        }
-
+        };
         /**
          * Queue a schema update to execute after a provided delay
          *
          * @param milliseconds - delay after which the task is to be executed
          */
-        enqueue_update_schema(milliseconds: number) {
-            let self = this;
+        SchemaEditor.prototype.enqueue_update_schema = function (milliseconds) {
+            var self = this;
             this.dequeue_update_schema();
             this.update_timeout_id = setTimeout(function () {
                 self.send_update_schema_message();
                 self.update_timeout_id = null;
             }, milliseconds);
-        }
-
+        };
         /**
          * Dequeue any queued schema update
          */
-        dequeue_update_schema() {
+        SchemaEditor.prototype.dequeue_update_schema = function () {
             if (this.update_timeout_id !== null) {
                 clearTimeout(this.update_timeout_id);
                 this.update_timeout_id = null;
             }
-        }
-
+        };
         /**
          * Determine if a schema update is queued
          */
-        is_update_schema_queued(): boolean {
+        SchemaEditor.prototype.is_update_schema_queued = function () {
             return this.update_timeout_id !== null;
-        }
-
+        };
         /**
          * Send a schema update message immediately
          */
-        send_update_schema_message() {
+        SchemaEditor.prototype.send_update_schema_message = function () {
             this.send_messages([this.create_update_schema_message()]);
-        }
-
+        };
         /**
          * Create a schema update message
          */
-        private create_update_schema_message(): MessageWithCallback {
-            let self = this;
-            let schema = self.get_schema();
+        SchemaEditor.prototype.create_update_schema_message = function () {
+            var self = this;
+            var schema = self.get_schema();
             return {
                 message: {method: 'update_schema', params: {schema: schema}},
                 on_response: function (msg) {
                     if (msg.status === 'success') {
                         console.log('Schema update successful');
-                        let colour_scheme_id_mapping = msg.colour_scheme_id_mapping;
-                        let group_id_mapping = msg.group_id_mapping;
-                        let label_class_id_mapping = msg.label_class_id_mapping;
+                        var colour_scheme_id_mapping = msg.colour_scheme_id_mapping;
+                        var group_id_mapping = msg.group_id_mapping;
+                        var label_class_id_mapping = msg.label_class_id_mapping;
                         if (colour_scheme_id_mapping !== undefined) {
-                            for (let scheme of schema.colour_schemes) {
+                            for (var _i = 0, _a = schema.colour_schemes; _i < _a.length; _i++) {
+                                var scheme = _a[_i];
                                 if (colour_scheme_id_mapping[scheme.id] !== undefined) {
                                     console.log('Remapping colour scheme ID ' + scheme.id + ' to ' + colour_scheme_id_mapping[scheme.id]);
                                     scheme.id = colour_scheme_id_mapping[scheme.id];
                                 }
                             }
                         }
-                        for (let group of schema.label_class_groups) {
+                        for (var _b = 0, _c = schema.label_class_groups; _b < _c.length; _b++) {
+                            var group = _c[_b];
                             if (group_id_mapping !== undefined) {
                                 if (group_id_mapping[group.id] !== undefined) {
                                     console.log('Remapping group ID ' + group.id + ' to ' + group_id_mapping[group.id]);
                                     group.id = group_id_mapping[group.id];
                                 }
                             }
-
                             if (label_class_id_mapping !== undefined) {
-                                for (let lcls of group.group_classes) {
+                                for (var _d = 0, _e = group.group_classes; _d < _e.length; _d++) {
+                                    var lcls = _e[_d];
                                     if (label_class_id_mapping[lcls.id] !== undefined) {
                                         console.log('Remapping label class ID ' + lcls.id + ' to ' + label_class_id_mapping[lcls.id]);
                                         lcls.id = label_class_id_mapping[lcls.id];
@@ -604,176 +552,151 @@ module schema_editor {
                     }
                 }
             };
-        }
-
-        private send_queued_update_followed_by(msg_cb: MessageWithCallback) {
-            let messages: MessageWithCallback[] = [];
+        };
+        SchemaEditor.prototype.send_queued_update_followed_by = function (msg_cb) {
+            var messages = [];
             if (this.is_update_schema_queued()) {
-                let msg = this.create_update_schema_message();
+                var msg = this.create_update_schema_message();
                 messages.push(msg);
                 this.dequeue_update_schema();
             }
             messages.push(msg_cb);
             this.send_messages(messages);
-        }
-
-
-        private send_create_colour_scheme(colour_scheme) {
-            this.send_queued_update_followed_by(
-                {
-                    message: {method: 'create_colour_scheme', params: {colour_scheme: colour_scheme}},
-                    on_response: function (msg) {
-                        if (msg.status === 'success') {
-                            if (msg.new_colour_scheme_id !== undefined) {
-                                console.log('Remapping colour scheme id ' + colour_scheme.id + ' to ' + msg.new_colour_scheme_id);
-                                colour_scheme.id = msg.new_colour_scheme_id;
-                            }
-                        } else {
-                            SchemaEditor.error_from_server(msg.status);
+        };
+        SchemaEditor.prototype.send_create_colour_scheme = function (colour_scheme) {
+            this.send_queued_update_followed_by({
+                message: {method: 'create_colour_scheme', params: {colour_scheme: colour_scheme}},
+                on_response: function (msg) {
+                    if (msg.status === 'success') {
+                        if (msg.new_colour_scheme_id !== undefined) {
+                            console.log('Remapping colour scheme id ' + colour_scheme.id + ' to ' + msg.new_colour_scheme_id);
+                            colour_scheme.id = msg.new_colour_scheme_id;
                         }
+                    } else {
+                        SchemaEditor.error_from_server(msg.status);
                     }
-                });
-        }
-
-        send_delete_colour_scheme(colour_scheme) {
-            this.send_queued_update_followed_by(
-                {
-                    message: {method: 'delete_colour_scheme', params: {colour_scheme: colour_scheme}},
-                    on_response: function (msg) {
-                        if (msg.status !== 'success') {
-                            SchemaEditor.error_from_server(msg.status);
+                }
+            });
+        };
+        SchemaEditor.prototype.send_delete_colour_scheme = function (colour_scheme) {
+            this.send_queued_update_followed_by({
+                message: {method: 'delete_colour_scheme', params: {colour_scheme: colour_scheme}},
+                on_response: function (msg) {
+                    if (msg.status !== 'success') {
+                        SchemaEditor.error_from_server(msg.status);
+                    }
+                }
+            });
+        };
+        SchemaEditor.prototype.send_create_group = function (group) {
+            this.send_queued_update_followed_by({
+                message: {method: 'create_group', params: {group: group}},
+                on_response: function (msg) {
+                    if (msg.status === 'success') {
+                        if (msg.new_group_id !== undefined) {
+                            console.log('Remapping group id ' + group.id + ' to ' + msg.new_group_id);
+                            group.id = msg.new_group_id;
                         }
+                    } else {
+                        SchemaEditor.error_from_server(msg.status);
                     }
-                });
-        }
-
-        send_create_group(group) {
-            this.send_queued_update_followed_by(
-                {
-                    message: {method: 'create_group', params: {group: group}},
-                    on_response: function (msg) {
-                        if (msg.status === 'success') {
-                            if (msg.new_group_id !== undefined) {
-                                console.log('Remapping group id ' + group.id + ' to ' + msg.new_group_id);
-                                group.id = msg.new_group_id;
-                            }
-                        } else {
-                            SchemaEditor.error_from_server(msg.status);
+                }
+            });
+        };
+        SchemaEditor.prototype.send_delete_group = function (group) {
+            this.send_queued_update_followed_by({
+                message: {method: 'delete_group', params: {group: group}},
+                on_response: function (msg) {
+                    if (msg.status !== 'success') {
+                        SchemaEditor.error_from_server(msg.status);
+                    }
+                }
+            });
+        };
+        SchemaEditor.prototype.send_create_label_class = function (label_class, containing_group) {
+            this.send_queued_update_followed_by({
+                message: {
+                    method: 'create_label_class',
+                    params: {label_class: label_class, containing_group: containing_group}
+                },
+                on_response: function (msg) {
+                    if (msg.status === 'success') {
+                        if (msg.new_label_class_id !== undefined) {
+                            console.log('Remapping label class id ' + label_class.id + ' to ' + msg.new_label_class_id);
+                            label_class.id = msg.new_label_class_id;
                         }
+                    } else {
+                        SchemaEditor.error_from_server(msg.status);
                     }
-                });
-        }
-
-        send_delete_group(group) {
-            this.send_queued_update_followed_by(
-                {
-                    message: {method: 'delete_group', params: {group: group}},
-                    on_response: function (msg) {
-                        if (msg.status !== 'success') {
-                            SchemaEditor.error_from_server(msg.status);
-                        }
+                }
+            });
+        };
+        SchemaEditor.prototype.send_delete_label_class = function (label_class, containing_group) {
+            this.send_queued_update_followed_by({
+                message: {
+                    method: 'delete_label_class',
+                    params: {label_class: label_class, containing_group: containing_group}
+                },
+                on_response: function (msg) {
+                    if (msg.status !== 'success') {
+                        SchemaEditor.error_from_server(msg.status);
                     }
-                });
-        }
-
-        send_create_label_class(label_class, containing_group) {
-            this.send_queued_update_followed_by(
-                {
-                    message: {
-                        method: 'create_label_class',
-                        params: {label_class: label_class, containing_group: containing_group}
-                    },
-                    on_response: function (msg) {
-                        if (msg.status === 'success') {
-                            if (msg.new_label_class_id !== undefined) {
-                                console.log('Remapping label class id ' + label_class.id + ' to ' + msg.new_label_class_id);
-                                label_class.id = msg.new_label_class_id;
-                            }
-                        } else {
-                            SchemaEditor.error_from_server(msg.status);
-                        }
-                    }
-                });
-        }
-
-        send_delete_label_class(label_class, containing_group) {
-            this.send_queued_update_followed_by(
-                {
-                    message: {
-                        method: 'delete_label_class',
-                        params: {label_class: label_class, containing_group: containing_group}
-                    },
-                    on_response: function (msg) {
-                        if (msg.status !== 'success') {
-                            SchemaEditor.error_from_server(msg.status);
-                        }
-                    }
-                });
-
-        }
-
-        private static confirm_deletion(entity_type: string, entity_name: string, on_delete: () => void) {
-            let modal = $('#delete_modal');
+                }
+            });
+        };
+        SchemaEditor.confirm_deletion = function (entity_type, entity_name, on_delete) {
+            var modal = $('#delete_modal');
             modal.find('.delete_target_type').text(entity_type);
             modal.find('#delete_target_name').text(entity_name);
-            let confirm_button = modal.find('#delete_confirm_button');
+            var confirm_button = modal.find('#delete_confirm_button');
             confirm_button.on('click', function () {
                 on_delete();
                 modal.modal('hide');
             });
             modal.modal();
-        }
-
-        private static error_from_server(error_code: string) {
-            let modal = $('#error_modal');
+        };
+        SchemaEditor.error_from_server = function (error_code) {
+            var modal = $('#error_modal');
             modal.find('#error_modal_code').text(error_code);
-            let confirm_button = modal.find('#error_reload_button');
+            var confirm_button = modal.find('#error_reload_button');
             confirm_button.on('click', function () {
                 window.location.reload();
                 modal.modal('hide');
             });
             modal.modal();
-        }
-
-
-        private static colour_regex = /#[A-Fa-f0-9]{6}/;
-        private static identifier_regex = /[A-Za-z_]\w*/;
-
-        private static matches(pattern: RegExp, x: string): boolean {
+        };
+        SchemaEditor.matches = function (pattern, x) {
             var match = pattern.exec(x);
             if (match !== null) {
                 return match.toString() === x;
             }
             return false;
-        }
-
-        private static check_colour(col: string): boolean {
+        };
+        SchemaEditor.check_colour = function (col) {
             return SchemaEditor.matches(SchemaEditor.colour_regex, col);
-        }
-
-        private static check_identifier(identifier: string): boolean {
+        };
+        SchemaEditor.check_identifier = function (identifier) {
             return SchemaEditor.matches(SchemaEditor.identifier_regex, identifier);
-        }
-
-
-        private static rgb_to_hex(col: number[]): string {
+        };
+        SchemaEditor.rgb_to_hex = function (col) {
             return "#" + ((1 << 24) + (col[0] << 16) + (col[1] << 8) + col[2]).toString(16).slice(1);
-        }
-
-        private static hex_to_rgb(hex: string): number[] {
+        };
+        SchemaEditor.hex_to_rgb = function (hex) {
             // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
             var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
             hex = hex.replace(shorthandRegex, function (m, r, g, b) {
                 return r + r + g + g + b + b;
             });
-
             var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return result ? [parseInt(result[1], 16),
                 parseInt(result[2], 16),
                 parseInt(result[3], 16)
             ] : null;
-        }
-    }
-
-}
-
+        };
+        SchemaEditor.colour_regex = /#[A-Fa-f0-9]{6}/;
+        SchemaEditor.identifier_regex = /[A-Za-z_]\w*/;
+        return SchemaEditor;
+    }());
+    schema_editor.SchemaEditor = SchemaEditor;
+})(schema_editor || (schema_editor = {}));
+//# sourceMappingURL=schema_editor.js.map

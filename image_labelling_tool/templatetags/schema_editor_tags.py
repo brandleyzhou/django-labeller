@@ -12,11 +12,12 @@ SCHEMA_EDITOR_VUE_PATH = \
 register = template.Library()
 
 @register.inclusion_tag('inline/schema_editor.html')
-def schema_editor(schema, update_url, show_colour_scheme_editor=True):
+def schema_editor(schema, fao_code_options, update_url, show_colour_scheme_editor=True):
     schema_js = schema.json_for_tool()
     schema_editor_templates = SCHEMA_EDITOR_VUE_PATH.open('r').read()
     return {
         'schema': json.dumps(schema_js),
+        'fao_code_options': fao_code_options,
         'update_url': update_url,
         'show_colour_scheme_editor': show_colour_scheme_editor,
         'schema_editor_vue_templates_html': schema_editor_templates,

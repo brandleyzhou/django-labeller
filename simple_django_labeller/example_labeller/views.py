@@ -259,7 +259,24 @@ class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):
 
 @ensure_csrf_cookie
 def schema_editor(request):
-    context = {'schema': lt_models.LabellingSchema.objects.get(name='default')}
+    fao_code_options = [
+            {'code': 'SAL', 'latin_name': 'Salmo salar'},
+            {'code': 'GAD', 'latin_name': 'Gadus morhua'},
+            {'code': 'CLU', 'latin_name': 'Clupea harengus'},
+            {'code': 'PSE', 'latin_name': 'Pseudopleuronectes americanus'},
+            {'code': 'SQU', 'latin_name': 'Squalus acanthias'},
+            {'code': 'MOL', 'latin_name': 'Mola mola'},
+            {'code': 'DOL', 'latin_name': 'Delphinus delphis'},
+            {'code': 'TUN', 'latin_name': 'Thunnus thynnus'},
+            {'code': 'PEN', 'latin_name': 'Penitella penita'},
+            {'code': 'LIT', 'latin_name': 'Lithodes maja'},
+            {'code': 'LUM', 'latin_name': 'Lumpenus lampretaeformis'},
+            {'code': 'MUS', 'latin_name': 'Mustelus mustelus'},
+            {'code': 'PSE', 'latin_name': 'Pseudopleuronectes americanus'}
+
+        ]
+    context = {'schema': lt_models.LabellingSchema.objects.get(name='default'),
+               'fao_code_options': fao_code_options}
     return render(request, 'schema_editor.html', context)
 
 

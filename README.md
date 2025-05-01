@@ -4,7 +4,7 @@
 
 - compatible with Django, Flask and Qt
 - polygon, box, point and oriented ellipse annotations supported
-- polygonal labels can have disjoint regions and can be editing using paintng and boolean operations; provided by
+- polygonal labels can have disjoint regions and can be editing using painting and boolean operations; provided by
   [polybooljs](https://github.com/voidqk/polybooljs)
 - can use the [DEXTR](http://people.ee.ethz.ch/~cvlsegmentation/dextr/) algorithm to automatically generate
   polygonal outlines of objects identified by the user with a few clicks; provided by the
